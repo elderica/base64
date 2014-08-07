@@ -43,6 +43,11 @@ func main() {
 		input = fi
 	}
 	NOTFILE:
-	input = base64.NewDecoder(base64.StdEncoding, input)
+
+	if decode {
+		input = base64.NewDecoder(base64.StdEncoding, input)
+	} else {
+		output = base64.NewEncoder(base64.StdEncoding, output)
+	}
 	io.Copy(output, input)
 }
