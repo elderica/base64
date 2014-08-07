@@ -26,4 +26,18 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	filename := flag.Arg(0)
+	if filename != "" {
+		if filename == "-" {
+			goto NOTFILE
+		}
+		input, err := os.Open(filename)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(-1)
+		}
+		defer input.Close()
+	}
+	NOTFILE:
 }
