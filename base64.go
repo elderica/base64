@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 	"fmt"
+	"io"
+	"encoding/base64"
 )
 
 var (
@@ -11,8 +13,8 @@ var (
 	igngarbage bool
 	wrap int
 	filename string
-	input = os.Stdin
-	output = os.Stdout
+	input io.Reader = os.Stdin
+	output io.Writer = os.Stdout
 )
 
 func init() {
@@ -32,12 +34,15 @@ func main() {
 		if filename == "-" {
 			goto NOTFILE
 		}
-		input, err := os.Open(filename)
+		fi, err := os.Open(filename)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(-1)
 		}
-		defer input.Close()
+		defer fi.Close()
+		input = fi
 	}
 	NOTFILE:
+	input = base64.NewDecoder(base64.StdEncoding, input)
+	io.Copy(output, input)
 }
