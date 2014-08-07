@@ -26,15 +26,48 @@ func init() {
 	flag.IntVar(&wrap, "wrap", 76, "Wrap lines during encoding.")
 }
 
+type WrapWriter struct {
+	w io.Writer
+	wn int
+	c int
+}
+
+func NewWrapWriter(w io.Writer, lim int) *WrapWriter {
+	return &WrapWriter{w, lim, 0}
+}
+
+func (w *WrapWriter) Write(p []byte) (int, error) {
+	r := 0
+	for i, _ := range p {
+		nw, err := w.w.Write(p[i:i+1])
+		if err != nil {
+			return r + nw, err
+		}
+		w.c += nw
+		r += nw
+		if w.c % w.wn == 0 {
+			_, err := w.w.Write([]byte("\n"))
+			if err != nil {
+				return r, err
+			}
+		}
+	}
+	return r, nil
+}
+
 func main() {
 	flag.Parse()
 
+	var (
+		fi *os.File
+		err error
+	)
 	filename := flag.Arg(0)
 	if filename != "" {
 		if filename == "-" {
 			goto NOTFILE
 		}
-		fi, err := os.Open(filename)
+		fi, err = os.Open(filename)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(-1)
@@ -47,6 +80,14 @@ func main() {
 	if decode {
 		input = base64.NewDecoder(base64.StdEncoding, input)
 	} else {
+		// When wrap is 0, disable line wrapping.
+		if wrap < 0 {
+			fmt.Fprintf(os.Stderr, "invalid wrap size: %d", wrap)
+			fi.Close()
+			os.Exit(-2)
+		} else if 0 < wrap {
+			output = NewWrapWriter(output, wrap)
+		}
 		output = base64.NewEncoder(base64.StdEncoding, output)
 	}
 	io.Copy(output, input)
