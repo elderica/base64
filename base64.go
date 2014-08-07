@@ -5,8 +5,11 @@ import (
 	"os"
 	"fmt"
 	"io"
+	"bytes"
 	"encoding/base64"
 )
+
+const base64alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 var (
 	decode bool
@@ -24,6 +27,30 @@ func init() {
 	flag.BoolVar(&igngarbage,  "ignore-garbage", false, "Ignore unrecognized bytes.")
 	flag.IntVar(&wrap, "w", 76, "")
 	flag.IntVar(&wrap, "wrap", 76, "Wrap lines during encoding.")
+}
+
+type Base64Cleaner struct {
+	r io.Reader
+}
+
+func NewBase64Cleaner(r io.Reader) io.Reader {
+	return &Base64Cleaner{r}
+}
+
+func (c *Base64Cleaner) Read(p []byte) (int, error) {
+	buf := make([]byte, len(p))
+	nr, err := c.r.Read(buf)
+	if err != nil {
+		return 0, err
+	}
+	var j int
+	for i := 0; i < nr; i++ {
+		if bytes.IndexByte([]byte(base64alpha), buf[i]) >= 0 || buf[i] == '=' {
+			p[j] = buf[i]
+			j++
+		}
+	}
+	return j, nil
 }
 
 type WrapWriter struct {
@@ -78,6 +105,9 @@ func main() {
 	NOTFILE:
 
 	if decode {
+		if igngarbage {
+			input = NewBase64Cleaner(input)
+		}
 		input = base64.NewDecoder(base64.StdEncoding, input)
 	} else {
 		// When wrap is 0, disable line wrapping.
